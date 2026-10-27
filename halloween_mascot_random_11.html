@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>할로윈 마스코트: 캔디 왕국 수호작전!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Jua', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            background-color: #0d0614;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            box-shadow: 0 0 30px rgba(106, 13, 173, 0.6);
+            cursor: crosshair;
+        }
+        .glow-text {
+            text-shadow: 0 0 10px #ff7518, 0 0 20px #6a0dad;
+        }
+        .hud-card {
+            background: rgba(20, 10, 35, 0.75);
+            border: 2px solid #6a0dad;
+            backdrop-filter: blur(4px);
+        }
+        /* Custom scrollbar override */
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen relative overflow-hidden bg-slate-950">
+
+    <!-- Game Container -->
+    <div id="game-wrapper" class="relative w-full h-screen flex flex-col justify-center items-center">
+
+        <!-- Top Header & HUD Overlay -->
+        <div id="hud-top" class="absolute top-3 left-4 right-4 flex justify-between items-center z-10 pointer-events-none">
+            <!-- Left: Lives & Score -->
+            <div class="hud-card px-4 py-2 rounded-2xl flex items-center gap-6 shadow-lg">
+                <div class="flex items-center gap-1 text-2xl" id="lives-display">
+                    ❤️ ❤️ ❤️
+                </div>
+                <div class="text-xl text-orange-400 font-bold">
+                    SCORE: <span id="score-text" class="text-2xl text-yellow-300">0</span>
+                </div>
+                <div class="text-sm text-purple-300 hidden sm:block">
+                    BEST: <span id="highscore-text" class="text-orange-300">0</span>
+                </div>
+            </div>
+
+            <!-- Right: Sound Toggle & Pause/Info -->
+            <div class="flex items-center gap-3 pointer-events-auto">
+                <button id="btn-audio" class="hud-card p-3 rounded-2xl hover:bg-purple-900 transition flex items-center justify-center text-xl">
+                    🔊
+                </button>
+                <button id="btn-story" class="hud-card px-4 py-2 rounded-2xl hover:bg-purple-900 transition text-base font-bold text-orange-300">
+                    📖 가이드
+                </button>
+            </div>
+        </div>
+
+        <!-- Bottom Skill Cooldown Bar -->
+        <div id="hud-bottom" class="absolute bottom-3 left-4 right-4 flex justify-center items-center gap-3 z-10 pointer-events-none">
+            <!-- Freeze (Enter) -->
+            <div id="skill-freeze" class="hud-card px-3 py-2 rounded-xl flex flex-col items-center min-w-[80px] opacity-80">
+                <span class="text-xs text-cyan-300">Enter</span>
+                <span class="text-lg">🧊 얼음!</span>
+                <span id="cd-freeze" class="text-xs text-yellow-300 font-bold">READY</span>
+            </div>
+
+            <!-- Right Click Laser -->
+            <div id="skill-giant" class="hud-card px-3 py-2 rounded-xl flex flex-col items-center min-w-[80px] opacity-80">
+                <span class="text-xs text-orange-300">우클릭</span>
+                <span class="text-lg">🍭 왕사탕</span>
+                <span id="cd-giant" class="text-xs text-yellow-300 font-bold">READY</span>
+            </div>
+
+            <!-- Middle Click Ultra -->
+            <div id="skill-ultra" class="hud-card px-3 py-2 rounded-xl flex flex-col items-center min-w-[80px] opacity-80">
+                <span class="text-xs text-purple-300">휠클릭</span>
+                <span class="text-lg">💥 초초파워</span>
+                <span id="cd-ultra" class="text-xs text-yellow-300 font-bold">READY</span>
+            </div>
+
+            <!-- Fever Bar -->
+            <div id="fever-container" class="hud-card px-4 py-2 rounded-xl flex flex-col items-center min-w-[140px]">
+                <span class="text-xs text-pink-300">휠 굴리기 (피버타임)</span>
+                <div class="w-full bg-gray-800 h-3 rounded-full overflow-hidden mt-1 border border-purple-500">
+                    <div id="fever-bar" class="bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 h-full w-0 transition-all"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Canvas -->
+        <canvas id="gameCanvas" class="w-full h-full rounded-none sm:rounded-2xl"></canvas>
+
+        <!-- Start / Story Screen Overlay -->
+        <div id="modal-start" class="absolute inset-0 bg-black/85 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center">
+            <h1 class="text-4xl md:text-6xl font-extrabold text-orange-500 glow-text mb-2">🎃 할로윈 마스코트 🎃</h1>
+            <h2 class="text-2xl md:text-3xl font-bold text-purple-300 mb-6">캔디 왕국 수호작전!</h2>
+            
+            <div class="max-w-xl bg-purple-950/80 border-2 border-orange-500/50 p-5 rounded-2xl text-left text-sm md:text-base space-y-2 mb-6 shadow-2xl">
+                <p class="text-yellow-200 font-bold text-center text-lg mb-2">📜 조작법 & 스킬 안내</p>
+                <p class="text-center text-pink-200 text-sm mb-3">🎭 11종 마스코트 중 한 명이 매번 무작위로 선택됩니다!</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-200">
+                    <div>🎮 <b class="text-orange-400">W, A, S, D / 화살표</b>: 8방향 이동</div>
+                    <div>🦘 <b class="text-orange-400">Space</b>: 회피 점프!</div>
+                    <div>🧊 <b class="text-cyan-300">Enter</b>: 3초 얼음 무적 (쿨다운 10초)</div>
+                    <div>🍬 <b class="text-pink-300">마우스 좌클릭</b>: 사탕 레이저 발사</div>
+                    <div>🍭 <b class="text-orange-300">마우스 우클릭</b>: 왕사탕 레이저 (위력 5배 / 쿨 10초)</div>
+                    <div>🌀 <b class="text-yellow-300">마우스 휠 굴리기</b>: 게이지 충전 시 피버타임 폭풍 점수!</div>
+                    <div>💥 <b class="text-purple-300">휠 버튼 클릭</b>: 화면 전체 초초파워 스킬 (쿨 30초)</div>
+                </div>
+                <hr class="border-purple-700 my-2">
+                <div class="text-xs text-purple-300 text-center">
+                    👾 <b>호박귀신</b>(체력 3 / 3점) | 👻 <b>유령</b>(체력 5 / 5점)을 물리치세요!
+                </div>
+            </div>
+
+            <button id="btn-start" class="px-8 py-4 bg-gradient-to-r from-orange-500 to-purple-600 hover:from-orange-600 hover:to-purple-700 text-white font-bold text-2xl rounded-2xl shadow-xl transform hover:scale-105 transition">
+                🚀 게임 시작하기!
+            </button>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="modal-gameover" class="absolute inset-0 bg-black/90 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center hidden">
+            <h1 class="text-5xl md:text-7xl font-extrabold text-red-500 glow-text mb-4">GAME OVER</h1>
+            <p class="text-xl text-purple-300 mb-2">캔디 왕국이 악동 귀신들에게 점령당했습니다...</p>
+            <div class="text-3xl text-yellow-300 font-bold mb-6">최종 점수: <span id="final-score">0</span>점</div>
+
+            <button id="btn-restart" class="px-8 py-4 bg-gradient-to-r from-orange-500 to-purple-600 hover:from-orange-600 hover:to-purple-700 text-white font-bold text-2xl rounded-2xl shadow-xl transform hover:scale-105 transition">
+                🔄 다시 도전하기
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /* ===================================================================
+           AUDIO SYSTEM (Web Audio API Synthesizer - Spooky Chiptune BGM & SFX)
+           =================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.isMuted = false;
+                this.bgmTimer = null;
+                this.noteIndex = 0;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playBGM() {
+                if (this.bgmTimer || this.isMuted) return;
+                this.init();
+
+                // Spooky retro minor scale notes (Hz)
+                const notes = [
+                    220.00, 0, 261.63, 246.94, 220.00, 0, 329.63, 311.13,
+                    220.00, 0, 261.63, 246.94, 207.65, 220.00, 246.94, 0
+                ];
+
+                this.bgmTimer = setInterval(() => {
+                    if (this.isMuted || !this.ctx) return;
+                    const freq = notes[this.noteIndex % notes.length];
+                    this.noteIndex++;
+
+                    if (freq > 0) {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+                        gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+
+                        osc.start();
+                        osc.stop(this.ctx.currentTime + 0.2);
+                    }
+                }, 180);
+            }
+
+            stopBGM() {
+                if (this.bgmTimer) {
+                    clearInterval(this.bgmTimer);
+                    this.bgmTimer = null;
+                }
+            }
+
+            playSFX(type) {
+                if (this.isMuted || !this.ctx) return;
+                this.init();
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                if (type === 'laser') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'giant') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(60, now + 0.3);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'jump') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(250, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'freeze') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1000, now);
+                    osc.frequency.linearRampToValueAtTime(400, now + 0.3);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'hit') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.linearRampToValueAtTime(50, now + 0.1);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'fever') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(500 + Math.random() * 400, now);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'ultra') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.5);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
+                    osc.start(now);
+                    osc.stop(now + 0.5);
+                } else if (type === 'hurt') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(120, now);
+                    osc.frequency.linearRampToValueAtTime(40, now + 0.25);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                }
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        /* ===================================================================
+           CANVAS & GAME ENGINE INIT
+           =================================================================== */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Game State Variables
+        let gameState = 'START'; // START, PLAYING, GAMEOVER
+        let score = 0;
+        let highscore = localStorage.getItem('hw_highscore') || 0;
+        let lives = 3;
+
+        // Input Tracking
+        const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, Space: false };
+        const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+
+        // Cooldown Timers (in seconds / timestamps)
+        const cooldowns = {
+            freeze: { max: 10, lastUsed: -10000, duration: 3 },
+            giant: { max: 10, lastUsed: -10000 },
+            ultra: { max: 30, lastUsed: -30000 }
+        };
+
+        // Fever Mechanic
+        let feverValue = 0; // 0 to 100
+        let isFeverActive = false;
+        let feverTimer = 0;
+
+        // Entities Arrays
+        let player;
+        let enemies = [];
+        let bullets = [];
+        let particles = [];
+        let bgElements = [];
+        let floatTexts = [];
+
+        /* ===================================================================
+           BACKGROUND ANIMATIONS (Webs, Spiders, Floating Pumpkins/Ghosts)
+           =================================================================== */
+        class BackgroundSystem {
+            constructor() {
+                this.spiders = [];
+                this.bgFloaters = [];
+                this.init();
+            }
+
+            init() {
+                // Spiders on webs
+                for (let i = 0; i < 5; i++) {
+                    this.spiders.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * (canvas.height * 0.4),
+                        length: 40 + Math.random() * 80,
+                        speed: 0.3 + Math.random() * 0.5,
+                        dir: 1,
+                        size: 10 + Math.random() * 6
+                    });
+                }
+                // Floating BG Ghosts & Pumpkins
+                for (let i = 0; i < 8; i++) {
+                    this.bgFloaters.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        type: Math.random() > 0.5 ? 'pumpkin' : 'ghost',
+                        vx: (Math.random() - 0.5) * 0.6,
+                        vy: (Math.random() - 0.5) * 0.4,
+                        size: 20 + Math.random() * 20,
+                        alpha: 0.15 + Math.random() * 0.2
+                    });
+                }
+            }
+
+            update() {
+                // Update spiders
+                this.spiders.forEach(s => {
+                    s.length += s.speed * s.dir;
+                    if (s.length > 150 || s.length < 30) s.dir *= -1;
+                });
+                // Update floaters
+                this.bgFloaters.forEach(f => {
+                    f.x += f.vx;
+                    f.y += f.vy;
+                    if (f.x < -50) f.x = canvas.width + 50;
+                    if (f.x > canvas.width + 50) f.x = -50;
+                    if (f.y < -50) f.y = canvas.height + 50;
+                    if (f.y > canvas.height + 50) f.y = -50;
+                });
+            }
+
+            draw() {
+                // Spooky Web corner lines
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                ctx.lineWidth = 1.5;
+                
+                // Top Left Web
+                ctx.beginPath();
+                ctx.moveTo(0, 0); ctx.lineTo(150, 150);
+                ctx.moveTo(0, 50); ctx.quadraticCurveTo(50, 50, 50, 0);
+                ctx.moveTo(0, 100); ctx.quadraticCurveTo(100, 100, 100, 0);
+                ctx.stroke();
+
+                // Top Right Web
+                ctx.beginPath();
+                ctx.moveTo(canvas.width, 0); ctx.lineTo(canvas.width - 150, 150);
+                ctx.moveTo(canvas.width, 50); ctx.quadraticCurveTo(canvas.width - 50, 50, canvas.width - 50, 0);
+                ctx.moveTo(canvas.width, 100); ctx.quadraticCurveTo(canvas.width - 100, 100, canvas.width - 100, 0);
+                ctx.stroke();
+
+                // Draw BG Floating Silhouettes
+                this.bgFloaters.forEach(f => {
+                    ctx.save();
+                    ctx.globalAlpha = f.alpha;
+                    ctx.translate(f.x, f.y);
+                    if (f.type === 'pumpkin') {
+                        ctx.fillStyle = '#ff7518';
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, f.size, f.size * 0.8, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else {
+                        ctx.fillStyle = '#e2e8f0';
+                        ctx.beginPath();
+                        ctx.arc(0, -f.size * 0.2, f.size * 0.7, Math.PI, 0, false);
+                        ctx.lineTo(f.size * 0.7, f.size * 0.8);
+                        ctx.lineTo(-f.size * 0.7, f.size * 0.8);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                });
+
+                // Draw Spiders
+                this.spiders.forEach(s => {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                    ctx.beginPath();
+                    ctx.moveTo(s.x, 0);
+                    ctx.lineTo(s.x, s.y + s.length);
+                    ctx.stroke();
+
+                    // Spider Body
+                    ctx.fillStyle = '#1e112a';
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y + s.length, s.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Red eyes
+                    ctx.fillStyle = '#ff0055';
+                    ctx.fillRect(s.x - 3, s.y + s.length - 2, 2, 2);
+                    ctx.fillRect(s.x + 1, s.y + s.length - 2, 2, 2);
+                });
+            }
+        }
+
+        // 11종 할로윈 마스코트: 게임을 새로 시작할 때마다 무작위로 한 명 선택
+        const MASCOT_ROSTER = [
+            { emoji: '🎃', name: '호박 마법사', color: '#ff7518' },
+            { emoji: '👻', name: '말랑 유령', color: '#e9d5ff' },
+            { emoji: '🧙', name: '꼬마 마녀', color: '#a855f7' },
+            { emoji: '🦇', name: '밤하늘 박쥐', color: '#7c3aed' },
+            { emoji: '🐈‍⬛', name: '검은 고양이', color: '#c084fc' },
+            { emoji: '🕷️', name: '꼬마 거미', color: '#f472b6' },
+            { emoji: '💀', name: '해골 친구', color: '#f8fafc' },
+            { emoji: '🧛', name: '꼬마 뱀파이어', color: '#ef4444' },
+            { emoji: '🧟', name: '느릿느릿 좀비', color: '#84cc16' },
+            { emoji: '🦉', name: '마법 부엉이', color: '#fbbf24' },
+            { emoji: '🍬', name: '캔디 요정', color: '#fb7185' }
+        ];
+
+        /* ===================================================================
+           MASCOT PLAYER CHARACTER
+           =================================================================== */
+        class MascotPlayer {
+            constructor() {
+                this.x = canvas.width / 2;
+                this.y = canvas.height / 2;
+                this.mascot = MASCOT_ROSTER[Math.floor(Math.random() * MASCOT_ROSTER.length)];
+                this.radius = 22;
+                this.speed = 5;
+                this.jumpZ = 0;
+                this.isJumping = false;
+                this.jumpVelocity = 0;
+                this.isFrozen = false;
+                this.facingAngle = 0;
+                this.animTimer = 0;
+            }
+
+            update() {
+                this.animTimer += 0.1;
+
+                // Freeze check
+                const now = Date.now();
+                if (now - cooldowns.freeze.lastUsed < cooldowns.freeze.duration * 1000) {
+                    this.isFrozen = true;
+                } else {
+                    this.isFrozen = false;
+                }
+
+                // Jump logic
+                if (this.isJumping) {
+                    this.jumpZ += this.jumpVelocity;
+                    this.jumpVelocity -= 0.8;
+                    if (this.jumpZ <= 0) {
+                        this.jumpZ = 0;
+                        this.isJumping = false;
+                    }
+                }
+
+                // Freeze stops player movement
+                if (this.isFrozen) return;
+
+                // Movement Inputs
+                let dx = 0;
+                let dy = 0;
+                if (keys.w || keys.ArrowUp) dy -= 1;
+                if (keys.s || keys.ArrowDown) dy += 1;
+                if (keys.a || keys.ArrowLeft) dx -= 1;
+                if (keys.d || keys.ArrowRight) dx += 1;
+
+                // Normalize speed diagonally
+                if (dx !== 0 && dy !== 0) {
+                    dx *= 0.7071;
+                    dy *= 0.7071;
+                }
+
+                this.x += dx * this.speed;
+                this.y += dy * this.speed;
+
+                // Canvas Bounds Clamp
+                this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+                this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
+
+                // Aim angle towards mouse cursor
+                this.facingAngle = Math.atan2(mouse.y - this.y, mouse.x - this.x);
+            }
+
+            jump() {
+                if (!this.isJumping && !this.isFrozen) {
+                    this.isJumping = true;
+                    this.jumpVelocity = 11;
+                    audio.playSFX('jump');
+                }
+            }
+
+            draw() {
+                const drawY = this.y - this.jumpZ;
+
+                // Shadow
+                ctx.save();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y + 18, this.radius * (1 - this.jumpZ * 0.02), 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                ctx.save();
+                ctx.translate(this.x, drawY);
+
+                // Frozen Effect Aura
+                if (this.isFrozen) {
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 4;
+                    ctx.fillStyle = 'rgba(186, 230, 253, 0.4)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 10 + Math.sin(this.animTimer * 5) * 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Ice Crystals
+                    ctx.fillStyle = '#e0f2fe';
+                    ctx.font = '16px sans-serif';
+                    ctx.fillText('❄️', -10, -this.radius - 10);
+                }
+
+                // 선택된 마스코트 11종 중 한 명을 큼직하게 표시
+                const wiggle = (keys.w || keys.a || keys.s || keys.d ||
+                    keys.ArrowUp || keys.ArrowDown || keys.ArrowLeft || keys.ArrowRight)
+                    ? Math.sin(this.animTimer * 10) * 0.08 : 0;
+                ctx.rotate(wiggle);
+                ctx.font = '48px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = this.mascot.color;
+                ctx.shadowBlur = 12;
+                ctx.fillText(this.mascot.emoji, 0, 0);
+                ctx.shadowBlur = 0;
+
+                // 마우스 방향을 가리키는 캔디 지팡이
+                ctx.rotate(this.facingAngle - wiggle);
+                ctx.fillStyle = '#f59e0b';
+                ctx.fillRect(10, 0, 16, 4);
+                ctx.fillStyle = '#ec4899';
+                ctx.beginPath();
+                ctx.arc(26, 2, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        /* ===================================================================
+           ENEMIES (Pumpkin Ghost & Flying Ghost)
+           =================================================================== */
+        class Enemy {
+            constructor(type) {
+                this.type = type; // 'pumpkin' or 'ghost'
+                // Spawn on edges outside screen
+                if (Math.random() < 0.5) {
+                    this.x = Math.random() < 0.5 ? -30 : canvas.width + 30;
+                    this.y = Math.random() * canvas.height;
+                } else {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() < 0.5 ? -30 : canvas.height + 30;
+                }
+
+                if (type === 'pumpkin') {
+                    this.hp = 3;
+                    this.maxHp = 3;
+                    this.speed = 1.8 + Math.random() * 0.6;
+                    this.scoreValue = 3;
+                    this.radius = 20;
+                    this.color = '#ff7518';
+                } else { // Flying Ghost
+                    this.hp = 5;
+                    this.maxHp = 5;
+                    this.speed = 2.4 + Math.random() * 0.8;
+                    this.scoreValue = 5;
+                    this.radius = 22;
+                    this.color = '#a855f7';
+                }
+
+                this.floatTimer = Math.random() * 10;
+            }
+
+            update() {
+                this.floatTimer += 0.08;
+
+                // Path towards player
+                const dx = player.x - this.x;
+                const dy = player.y - this.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > 0) {
+                    this.x += (dx / dist) * this.speed;
+                    this.y += (dy / dist) * this.speed;
+                }
+
+                // Wave movement for ghosts
+                if (this.type === 'ghost') {
+                    this.x += Math.cos(this.floatTimer) * 1.2;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                if (this.type === 'pumpkin') {
+                    // Pumpkin Ghost
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.radius * 1.1, this.radius, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Pumpkin Lines
+                    ctx.strokeStyle = '#c2410c';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius * 0.6, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Spooky Face
+                    ctx.fillStyle = '#1e0933';
+                    // Eyes
+                    ctx.beginPath();
+                    ctx.moveTo(-8, -6); ctx.lineTo(-2, -6); ctx.lineTo(-5, -1); ctx.closePath();
+                    ctx.moveTo(8, -6); ctx.lineTo(2, -6); ctx.lineTo(5, -1); ctx.closePath();
+                    ctx.fill();
+                    // Jagged Mouth
+                    ctx.beginPath();
+                    ctx.moveTo(-10, 4); ctx.lineTo(-5, 8); ctx.lineTo(0, 4); ctx.lineTo(5, 8); ctx.lineTo(10, 4);
+                    ctx.lineTo(8, 11); ctx.lineTo(-8, 11); ctx.closePath();
+                    ctx.fill();
+
+                } else {
+                    // Cute Flying Ghost
+                    ctx.fillStyle = 'rgba(243, 232, 255, 0.95)';
+                    ctx.shadowColor = '#c084fc';
+                    ctx.shadowBlur = 10;
+
+                    ctx.beginPath();
+                    ctx.arc(0, -4, this.radius, Math.PI, 0, false);
+                    // Tail waving
+                    const tailWiggle = Math.sin(this.floatTimer * 2) * 5;
+                    ctx.lineTo(this.radius, this.radius);
+                    ctx.quadraticCurveTo(this.radius * 0.5, this.radius + tailWiggle, 0, this.radius);
+                    ctx.quadraticCurveTo(-this.radius * 0.5, this.radius - tailWiggle, -this.radius, this.radius);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Ghost Cute Eyes
+                    ctx.fillStyle = '#581c87';
+                    ctx.beginPath();
+                    ctx.arc(-7, -4, 3, 0, Math.PI * 2);
+                    ctx.arc(7, -4, 3, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // O mouth
+                    ctx.beginPath();
+                    ctx.arc(0, 4, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Health Bar
+                if (this.hp < this.maxHp) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.fillRect(-15, -this.radius - 12, 30, 5);
+                    ctx.fillStyle = '#22c55e';
+                    ctx.fillRect(-15, -this.radius - 12, (this.hp / this.maxHp) * 30, 5);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        /* ===================================================================
+           CANDY LASER PROJECTILES
+           =================================================================== */
+        class CandyLaser {
+            constructor(x, y, angle, isGiant = false) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.isGiant = isGiant;
+                this.speed = isGiant ? 12 : 10;
+                this.damage = isGiant ? 5 : 1;
+                this.radius = isGiant ? 18 : 8;
+                this.vx = Math.cos(angle) * this.speed;
+                this.vy = Math.sin(angle) * this.speed;
+                this.alive = true;
+                this.rotation = 0;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.rotation += 0.2;
+
+                // Offscreen cleanup
+                if (this.x < -30 || this.x > canvas.width + 30 || this.y < -30 || this.y > canvas.height + 30) {
+                    this.alive = false;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                if (this.isGiant) {
+                    // Giant Candy Beam
+                    ctx.shadowColor = '#f43f5e';
+                    ctx.shadowBlur = 15;
+
+                    // Giant Wrapped Candy
+                    ctx.fillStyle = '#fb7185';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#fef08a';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius * 0.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Candy Wrappers Edge
+                    ctx.fillStyle = '#fb7185';
+                    ctx.beginPath();
+                    ctx.moveTo(-this.radius - 8, -6); ctx.lineTo(-this.radius, 0); ctx.lineTo(-this.radius - 8, 6);
+                    ctx.moveTo(this.radius + 8, -6); ctx.lineTo(this.radius, 0); ctx.lineTo(this.radius + 8, 6);
+                    ctx.fill();
+
+                } else {
+                    // Standard Cute Spiral Candy
+                    ctx.fillStyle = '#ec4899';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Spiral stripes
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius * 0.5, 0, Math.PI);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        /* ===================================================================
+           PARTICLES & FLOATING TEXT
+           =================================================================== */
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 6;
+                this.vy = (Math.random() - 0.5) * 6;
+                this.radius = 2 + Math.random() * 4;
+                this.alpha = 1;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= 0.03;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(text, x, y, color = '#fde047') {
+                this.text = text;
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vy = -1.5;
+                this.alpha = 1;
+            }
+
+            update() {
+                this.y += this.vy;
+                this.alpha -= 0.02;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.font = 'bold 20px Jua, sans-serif';
+                ctx.fillText(this.text, this.x - 10, this.y);
+                ctx.restore();
+            }
+        }
+
+        /* ===================================================================
+           GAME CONTROLLER & ACTIONS
+           =================================================================== */
+        const bgSystem = new BackgroundSystem();
+
+        function spawnEnemies() {
+            if (gameState !== 'PLAYING') return;
+            // Spawn frequency scales with score
+            const spawnChance = 0.03 + Math.min(score * 0.0005, 0.05);
+            if (Math.random() < spawnChance) {
+                const type = Math.random() > 0.4 ? 'pumpkin' : 'ghost';
+                enemies.push(new Enemy(type));
+            }
+        }
+
+        function triggerUltraSkill() {
+            const now = Date.now();
+            if (now - cooldowns.ultra.lastUsed < cooldowns.ultra.max * 1000) return;
+
+            cooldowns.ultra.lastUsed = now;
+            audio.playSFX('ultra');
+
+            // Burst Screen Clear Effect
+            for (let i = 0; i < 36; i++) {
+                const angle = (Math.PI * 2 / 36) * i;
+                bullets.push(new CandyLaser(player.x, player.y, angle, true));
+            }
+
+            // Damage all current enemies on screen
+            enemies.forEach(e => {
+                e.hp -= 5;
+                createExplosion(e.x, e.y, '#a855f7');
+            });
+
+            floatTexts.push(new FloatingText('💥 초초파워 대폭발!', player.x - 40, player.y - 40, '#a855f7'));
+        }
+
+        function createExplosion(x, y, color = '#ff7518') {
+            for (let i = 0; i < 12; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('score-text').innerText = score;
+            document.getElementById('highscore-text').innerText = highscore;
+
+            // Lives
+            let hearts = '';
+            for (let i = 0; i < lives; i++) hearts += '❤️ ';
+            document.getElementById('lives-display').innerText = hearts || '💀';
+
+            const now = Date.now();
+
+            // Freeze CD
+            const freezeLeft = Math.max(0, Math.ceil((cooldowns.freeze.max * 1000 - (now - cooldowns.freeze.lastUsed)) / 1000));
+            document.getElementById('cd-freeze').innerText = freezeLeft > 0 ? `${freezeLeft}s` : 'READY';
+            document.getElementById('skill-freeze').style.opacity = freezeLeft > 0 ? '0.5' : '1';
+
+            // Giant Laser CD
+            const giantLeft = Math.max(0, Math.ceil((cooldowns.giant.max * 1000 - (now - cooldowns.giant.lastUsed)) / 1000));
+            document.getElementById('cd-giant').innerText = giantLeft > 0 ? `${giantLeft}s` : 'READY';
+            document.getElementById('skill-giant').style.opacity = giantLeft > 0 ? '0.5' : '1';
+
+            // Ultra Skill CD
+            const ultraLeft = Math.max(0, Math.ceil((cooldowns.ultra.max * 1000 - (now - cooldowns.ultra.lastUsed)) / 1000));
+            document.getElementById('cd-ultra').innerText = ultraLeft > 0 ? `${ultraLeft}s` : 'READY';
+            document.getElementById('skill-ultra').style.opacity = ultraLeft > 0 ? '0.5' : '1';
+
+            // Fever Gauge Bar
+            document.getElementById('fever-bar').style.width = `${feverValue}%`;
+        }
+
+        /* ===================================================================
+           MAIN GAME LOOP
+           =================================================================== */
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Background
+            bgSystem.update();
+            bgSystem.draw();
+
+            if (gameState === 'PLAYING') {
+                // Spawn Logic
+                spawnEnemies();
+
+                // Player Update & Draw
+                player.update();
+                player.draw();
+
+                // Bullets
+                bullets.forEach((b, index) => {
+                    b.update();
+                    b.draw();
+                    if (!b.alive) bullets.splice(index, 1);
+                });
+
+                // Enemies
+                enemies.forEach((enemy, eIdx) => {
+                    enemy.update();
+                    enemy.draw();
+
+                    // Collision with Bullets
+                    bullets.forEach((bullet, bIdx) => {
+                        const dist = Math.hypot(enemy.x - bullet.x, enemy.y - bullet.y);
+                        if (dist < enemy.radius + bullet.radius) {
+                            enemy.hp -= bullet.damage;
+                            bullet.alive = false;
+                            audio.playSFX('hit');
+                            createExplosion(bullet.x, bullet.y, enemy.color);
+
+                            if (enemy.hp <= 0) {
+                                score += enemy.scoreValue;
+                                floatTexts.push(new FloatingText(`+${enemy.scoreValue}`, enemy.x, enemy.y));
+                                createExplosion(enemy.x, enemy.y, '#f59e0b');
+
+                                // Increase Fever
+                                if (!isFeverActive) {
+                                    feverValue = Math.min(100, feverValue + 8);
+                                }
+                            }
+                        }
+                    });
+
+                    // Collision with Player
+                    if (!player.isFrozen && !player.isJumping) {
+                        const distToPlayer = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+                        if (distToPlayer < enemy.radius + player.radius) {
+                            // Player gets hit
+                            lives -= 1;
+                            audio.playSFX('hurt');
+                            createExplosion(player.x, player.y, '#ef4444');
+                            enemies.splice(eIdx, 1);
+
+                            if (lives <= 0) {
+                                gameOver();
+                            }
+                        }
+                    }
+                });
+
+                // Clean dead enemies
+                enemies = enemies.filter(e => e.hp > 0);
+
+                // Particles & Floating Text
+                particles.forEach((p, pIdx) => {
+                    p.update();
+                    p.draw();
+                    if (p.alpha <= 0) particles.splice(pIdx, 1);
+                });
+
+                floatTexts.forEach((ft, ftIdx) => {
+                    ft.update();
